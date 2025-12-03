@@ -338,11 +338,18 @@
         }
       });
 
-      // 退出登录
-      document.getElementById('logout-btn').addEventListener('click', () => {
-        AV.User.logOut();
-        currentUser = null;
-        window.location.reload(); // 刷新页面
+      // 修复后的退出登录代码（直接替换）
+      document.getElementById('logoutBtn').addEventListener('click', async function() {
+        try {
+          // 1. 注销 LeanCloud 的用户（关键！清除云端缓存）
+          AV.User.logOut();
+          // 2. 清除本地存储的用户信息
+          localStorage.removeItem('currentUser');
+          // 3. 刷新页面，重新显示登录界面
+          window.location.reload();
+        } catch (error) {
+          alert('退出失败：' + error.message);
+        }
       });
     }
 
@@ -562,4 +569,5 @@
     }
   </script>
 </body>
+
 </html>
