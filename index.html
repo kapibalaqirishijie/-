@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>异常物对战v0.1</title>
   
-  <!-- 仅保留必要依赖 -->
+  <!-- 必要依赖 -->
   <script src="https://cdn.jsdelivr.net/npm/leancloud-storage@4.15.1/dist/av-min.js"></script>
   <script src="https://cdn.tailwindcss.com"></script>
   <link href="https://cdn.jsdelivr.net/npm/font-awesome@4.7.0/css/font-awesome.min.css" rel="stylesheet">
@@ -18,7 +18,7 @@
     AV.init({ appId, appKey, serverURL });
   </script>
   
-  <!-- Tailwind 配置（极简黑白+圆角） -->
+  <!-- Tailwind 配置 -->
   <script>
     tailwind.config = {
       theme: {
@@ -27,6 +27,7 @@
             primary: '#000000',
             secondary: '#333333',
             hover: '#e8e8e8',
+            selected: '#d0d0d0',
           },
           fontFamily: {
             mono: ['"Courier New"', 'monospace'],
@@ -43,6 +44,9 @@
       .btn-style:hover { background: #e8e8e8; box-shadow: 0 2px 6px rgba(0,0,0,0.15); }
       .input-style { border: 1px solid #333; border-radius: 6px; transition: border 0.2s ease; }
       .input-style:focus { outline: none; border-color: #000; box-shadow: 0 0 0 2px rgba(0,0,0,0.05); }
+      .abnormal-select-item { border: 1px solid #333; border-radius: 6px; transition: all 0.2s ease; cursor: pointer; }
+      .abnormal-select-item:hover { background: #e8e8e8; }
+      .abnormal-select-item.selected { background: #d0d0d0; border-color: #000; }
     }
   </style>
   <style>
@@ -131,33 +135,23 @@
 
     <!-- 主内容区 -->
     <main>
-      <!-- 首页（仅保留匹配和红龙预览，移除统计卡片） -->
+      <!-- 首页（新增异常物选择功能） -->
       <section id="home-page" class="space-y-8">
-        <!-- 匹配对战入口 -->
-        <div class="card-style p-6 text-center">
-          <h2 class="text-xl font-bold mb-4">随机匹配对战</h2>
-          <p class="mb-6 text-gray-600 text-sm md:text-base">点击下方按钮，匹配在线玩家进行回合制对战</p>
-          <button id="start-match" class="btn-style px-6 py-3 text-lg">开始匹配</button>
-          <div id="match-status" class="mt-4 text-gray-600 hidden">匹配中... 请等待其他玩家</div>
+        <!-- 异常物选择区域 -->
+        <div class="card-style p-6">
+          <h3 class="text-lg font-bold mb-4">选择出战异常物</h3>
+          <div id="abnormal-select-list" class="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <!-- 动态加载用户拥有的异常物 -->
+          </div>
+          <p id="no-abnormal-tip" class="text-center mt-4 hidden">暂无可用异常物</p>
         </div>
         
-        <!-- 红龙预览 -->
-        <div class="card-style p-6">
-          <h3 class="text-lg font-bold mb-4">当前可用异常物：红龙</h3>
-          <div class="flex flex-col md:flex-row items-center">
-            <img 
-              src="https://raw.githubusercontent.com/kapibalaqirishijie/-/e5d289975b22651c56d0de0cbd6691d785b5bc17/%E6%B7%B7%E6%B2%8C%E7%BA%A2%E9%BE%99.jpg" 
-              alt="红龙" 
-              class="w-40 h-40 object-cover border-simple rounded-md mb-4 md:mb-0 md:mr-6"
-            >
-            <div class="text-left space-y-2 w-full md:w-auto">
-              <p><span class="font-bold">属性：</span>火焰/龙</p>
-              <p><span class="font-bold">攻击：</span>92</p>
-              <p><span class="font-bold">防御：</span>78</p>
-              <p><span class="font-bold">速度：</span>95</p>
-              <p><span class="font-bold">技能：</span>烈焰突袭、火焰吞噬</p>
-            </div>
-          </div>
+        <!-- 匹配对战入口（需选择异常物后才可点击） -->
+        <div class="card-style p-6 text-center">
+          <h2 class="text-xl font-bold mb-4">随机匹配对战</h2>
+          <p class="mb-6 text-gray-600 text-sm md:text-base">请先选择出战异常物，再点击下方按钮匹配</p>
+          <button id="start-match" class="btn-style px-6 py-3 text-lg pointer-events-none opacity-50">开始匹配</button>
+          <div id="match-status" class="mt-4 text-gray-600 hidden">匹配中... 请等待其他玩家</div>
         </div>
       </section>
 
@@ -181,10 +175,11 @@
       <section id="battle-page" class="hidden space-y-6">
         <h2 class="text-xl font-bold text-center">回合制对战</h2>
         
-        <!-- 对战双方信息 -->
+        <!-- 对战双方信息（显示所选异常物） -->
         <div class="flex justify-between mb-6 items-center">
           <div class="text-center flex flex-col items-center">
             <p class="font-bold" id="player1-name">你</p>
+            <p class="text-sm" id="player1-abnormal">出战：红龙</p>
             <p id="player1-hp" class="mt-1">HP: 220/220</p>
             <span id="player1-turn" class="turn-indicator text-sm text-red-600 hidden mt-1">你的回合</span>
           </div>
@@ -193,21 +188,15 @@
           </div>
           <div class="text-center flex flex-col items-center">
             <p class="font-bold" id="player2-name">对手</p>
+            <p class="text-sm" id="player2-abnormal">出战：未知</p>
             <p id="player2-hp" class="mt-1">HP: 220/220</p>
             <span id="player2-turn" class="turn-indicator text-sm text-red-600 hidden mt-1">对手回合</span>
           </div>
         </div>
         
-        <!-- 技能按钮 -->
+        <!-- 技能按钮（根据所选异常物加载技能） -->
         <div class="grid grid-cols-2 gap-4 mb-6" id="skill-container">
-          <button id="skill1" class="btn-style p-4 pointer-events-none opacity-50">
-            <p class="font-bold">烈焰突袭</p>
-            <p class="text-sm text-gray-600">造成120%攻击伤害</p>
-          </button>
-          <button id="skill2" class="btn-style p-4 pointer-events-none opacity-50">
-            <p class="font-bold">火焰吞噬</p>
-            <p class="text-sm text-gray-600">造成150%攻击伤害，吸血30%</p>
-          </button>
+          <!-- 动态加载技能 -->
         </div>
         
         <!-- 战斗日志 -->
@@ -229,7 +218,7 @@
     </footer>
   </div>
 
-  <!-- 核心逻辑（彻底移除统计相关代码） -->
+  <!-- 核心逻辑（修复showPage+新增异常物选择） -->
   <script>
     // 全局变量
     let currentUser = null;
@@ -238,16 +227,38 @@
     let currentBattleRoom = null;
     let battleInterval = null;
     let isMyTurn = false;
+    let selectedAbnormal = null; // 选中的出战异常物
 
-    // DOM加载完成后初始化
+
+    // ---------------------- 全局页面工具函数（修复showPage未定义） ----------------------
+    function showPage(pageId) {
+      document.querySelectorAll('main section').forEach(section => {
+        section.classList.add('hidden');
+      });
+      const targetPage = document.getElementById(pageId);
+      if (targetPage) targetPage.classList.remove('hidden');
+    }
+
+    function updateNavActive(navId) {
+      document.querySelectorAll('nav button').forEach(btn => {
+        btn.classList.remove('border-b-2', 'border-primary');
+      });
+      const targetNav = document.getElementById(navId);
+      if (targetNav) targetNav.classList.add('border-b-2', 'border-primary');
+    }
+
+
+    // ---------------------- DOM加载完成后初始化 ----------------------
     document.addEventListener('DOMContentLoaded', () => {
       initLoginRegister();    // 登录/注册
       initPageSwitch();       // 页面切换
       checkLoginState();      // 登录态检查
+      initAbnormalSelect();   // 异常物选择功能
       initMatchFunction();    // 匹配功能
     });
 
-    // 1. 登录/注册逻辑（无统计相关代码）
+
+    // ---------------------- 1. 登录/注册逻辑 ----------------------
     function initLoginRegister() {
       // 切换登录/注册表单
       document.getElementById('login-tab').addEventListener('click', () => {
@@ -314,7 +325,7 @@
           stats.set('winRate', 0);
           await stats.save();
 
-          // 初始化异常物数据
+          // 初始化异常物数据（默认获得红龙）
           const UserAbnormal = AV.Object.extend('UserAbnormal');
           const abnormal = new UserAbnormal();
           abnormal.set('user', user);
@@ -323,17 +334,23 @@
           abnormal.set('attack', 92);
           abnormal.set('defense', 78);
           abnormal.set('speed', 95);
-          abnormal.set('skills', ['烈焰突袭', '火焰吞噬']);
+          abnormal.set('hp', 220); // 新增HP属性
+          abnormal.set('skills', [
+            {name: '烈焰突袭', desc: '造成120%攻击伤害', damageRate: 1.2},
+            {name: '火焰吞噬', desc: '造成150%攻击伤害，吸血30%', damageRate: 1.5,吸血Rate: 0.3}
+          ]);
           abnormal.set('imageUrl', 'https://raw.githubusercontent.com/kapibalaqirishijie/-/e5d289975b22651c56d0de0cbd6691d785b5bc17/%E6%B7%B7%E6%B2%8C%E7%BA%A2%E9%BE%99.jpg');
           await abnormal.save();
 
-          alert('注册成功！已自动登录');
+          alert('注册成功！已自动获得异常物「红龙」');
           document.getElementById('login-modal').classList.add('hidden');
-          // 自动显示游戏容器（无需刷新）
+          // 自动显示游戏容器
           document.getElementById('game-container').classList.remove('hidden');
           document.getElementById('show-login').classList.add('hidden');
           document.getElementById('logout-btn').classList.remove('hidden');
           updateUserInfo();
+          // 加载异常物选择列表
+          loadUserAbnormals();
         } catch (error) {
           alert('注册失败：' + error.message);
         }
@@ -353,11 +370,13 @@
           currentUser = await AV.User.logIn(username, password);
           alert('登录成功！');
           document.getElementById('login-modal').classList.add('hidden');
-          // 自动显示游戏容器（无需刷新）
+          // 自动显示游戏容器
           document.getElementById('game-container').classList.remove('hidden');
           document.getElementById('show-login').classList.add('hidden');
           document.getElementById('logout-btn').classList.remove('hidden');
           updateUserInfo();
+          // 加载异常物选择列表
+          loadUserAbnormals();
         } catch (error) {
           alert('登录失败：' + error.message);
         }
@@ -375,12 +394,15 @@
       });
     }
 
-    // 2. 页面切换逻辑
+
+    // ---------------------- 2. 页面切换逻辑 ----------------------
     function initPageSwitch() {
       // 导航切换
       document.getElementById('nav-home').addEventListener('click', () => {
         showPage('home-page');
         updateNavActive('nav-home');
+        // 回到首页时重新加载异常物选择
+        if (currentUser) loadUserAbnormals();
       });
 
       document.getElementById('nav-collection').addEventListener('click', () => {
@@ -403,28 +425,106 @@
         battleRoomId = null;
         currentBattleRoom = null;
         isMyTurn = false;
+        // 重置匹配按钮状态
+        document.getElementById('start-match').classList.add('pointer-events-none', 'opacity-50');
+        // 重新加载异常物选择
+        loadUserAbnormals();
       });
+    }
 
-      // 显示指定页面
-      function showPage(pageId) {
-        document.querySelectorAll('main section').forEach(section => {
-          section.classList.add('hidden');
-        });
-        const targetPage = document.getElementById(pageId);
-        if (targetPage) targetPage.classList.remove('hidden');
-      }
 
-      // 更新导航高亮
-      function updateNavActive(navId) {
-        document.querySelectorAll('nav button').forEach(btn => {
-          btn.classList.remove('border-b-2', 'border-primary');
+    // ---------------------- 3. 异常物选择功能（核心新增） ----------------------
+    function initAbnormalSelect() {
+      // 异常物选择项点击事件（全局委托）
+      document.getElementById('abnormal-select-list').addEventListener('click', (e) => {
+        const item = e.target.closest('.abnormal-select-item');
+        if (!item || !item.dataset.id) return;
+
+        // 切换选中状态
+        document.querySelectorAll('.abnormal-select-item').forEach(el => {
+          el.classList.remove('selected');
         });
-        const targetNav = document.getElementById(navId);
-        if (targetNav) targetNav.classList.add('border-b-2', 'border-primary');
+        item.classList.add('selected');
+
+        // 获取选中的异常物数据
+        const abnormalId = item.dataset.id;
+        loadSelectedAbnormal(abnormalId);
+      });
+    }
+
+    // 加载用户拥有的异常物到选择列表
+    async function loadUserAbnormals() {
+      if (!currentUser) return;
+      const listEl = document.getElementById('abnormal-select-list');
+      const noTipEl = document.getElementById('no-abnormal-tip');
+      listEl.innerHTML = '';
+
+      try {
+        const query = new AV.Query('UserAbnormal');
+        query.equalTo('user', currentUser);
+        const abnormals = await query.find();
+
+        if (abnormals.length === 0) {
+          noTipEl.classList.remove('hidden');
+          return;
+        }
+        noTipEl.classList.add('hidden');
+
+        // 渲染选择项
+        abnormals.forEach(abnormal => {
+          const data = abnormal.toJSON();
+          const item = document.createElement('div');
+          item.className = 'abnormal-select-item p-4 flex flex-col md:flex-row items-center';
+          item.dataset.id = data.objectId;
+          // 默认选中第一个异常物
+          if (abnormals.indexOf(abnormal) === 0) item.classList.add('selected');
+          
+          item.innerHTML = `
+            <img 
+              src="${data.imageUrl}" 
+              alt="${data.name}" 
+              class="w-24 h-24 object-cover border-simple rounded-md mb-4 md:mb-0 md:mr-4"
+            >
+            <div class="space-y-1 w-full md:w-auto">
+              <h4 class="text-lg font-bold">${data.name}</h4>
+              <p class="text-sm"><span class="font-bold">攻击：</span>${data.attack}</p>
+              <p class="text-sm"><span class="font-bold">防御：</span>${data.defense}</p>
+              <p class="text-sm"><span class="font-bold">HP：</span>${data.hp}</p>
+            </div>
+          `;
+          listEl.appendChild(item);
+        });
+
+        // 默认选中第一个异常物
+        if (abnormals.length > 0) {
+          loadSelectedAbnormal(abnormals[0].id);
+        }
+      } catch (error) {
+        alert('加载异常物失败：' + error.message);
       }
     }
 
-    // 3. 检查登录态
+    // 加载选中的异常物数据（启用匹配按钮）
+    async function loadSelectedAbnormal(abnormalId) {
+      if (!currentUser) return;
+      const matchBtn = document.getElementById('start-match');
+
+      try {
+        const query = new AV.Query('UserAbnormal');
+        const abnormal = await query.get(abnormalId);
+        selectedAbnormal = abnormal.toJSON();
+
+        // 启用匹配按钮
+        matchBtn.classList.remove('pointer-events-none', 'opacity-50');
+        alert(`已选择出战异常物：${selectedAbnormal.name}`);
+      } catch (error) {
+        alert('选择异常物失败：' + error.message);
+        matchBtn.classList.add('pointer-events-none', 'opacity-50');
+      }
+    }
+
+
+    // ---------------------- 4. 检查登录态 ----------------------
     async function checkLoginState() {
       currentUser = AV.User.current();
       if (currentUser) {
@@ -433,6 +533,8 @@
         document.getElementById('show-login').classList.add('hidden');
         document.getElementById('logout-btn').classList.remove('hidden');
         updateUserInfo();
+        // 加载异常物选择列表
+        loadUserAbnormals();
       } else {
         // 未登录：显示登录弹窗
         document.getElementById('game-container').classList.add('hidden');
@@ -442,19 +544,20 @@
       }
     }
 
-    // 4. 更新用户信息
+
+    // ---------------------- 5. 更新用户信息 ----------------------
     async function updateUserInfo() {
       if (!currentUser) return;
       const playerNameEl = document.getElementById('player-name');
       if (playerNameEl) playerNameEl.textContent = currentUser.getUsername() || '幸存者';
     }
 
-    // 5. 匹配功能（两人同时进入对战）
+
+    // ---------------------- 6. 匹配功能（修复showPage调用） ----------------------
     function initMatchFunction() {
       document.getElementById('start-match').addEventListener('click', async () => {
-        if (!currentUser) {
-          alert('请先登录后再匹配！');
-          document.getElementById('login-modal').classList.remove('hidden');
+        if (!currentUser || !selectedAbnormal) {
+          alert('请先选择出战异常物！');
           return;
         }
 
@@ -463,11 +566,12 @@
         document.getElementById('match-status').classList.remove('hidden');
 
         try {
-          // 创建匹配记录
+          // 创建匹配记录（携带所选异常物信息）
           const MatchPool = AV.Object.extend('MatchPool');
           const matchRecord = new MatchPool();
           matchRecord.set('userId', currentUser.id);
           matchRecord.set('username', currentUser.getUsername());
+          matchRecord.set('abnormal', selectedAbnormal); // 携带所选异常物
           await matchRecord.save();
           const myMatchRecordId = matchRecord.id;
 
@@ -513,18 +617,33 @@
       });
     }
 
-    // 创建对战房间
+
+    // ---------------------- 7. 创建对战房间（修复showPage调用） ----------------------
     async function createBattleRoom(opponent, myMatchRecord) {
       try {
+        if (!selectedAbnormal) throw new Error('未选择出战异常物');
+        
+        // 获取对手的异常物信息
+        const opponentAbnormal = opponent.get('abnormal') || {
+          name: '未知',
+          attack: 90,
+          defense: 75,
+          hp: 210,
+          skills: [{name: '普通攻击', desc: '造成100%攻击伤害', damageRate: 1.0}]
+        };
+
+        // 创建对战房间（携带双方异常物信息）
         const BattleRoom = AV.Object.extend('BattleRoom');
         const battleRoom = new BattleRoom();
         battleRoom.set('player1Id', currentUser.id);
         battleRoom.set('player1Name', currentUser.getUsername());
+        battleRoom.set('player1Abnormal', selectedAbnormal); // 玩家1异常物
+        battleRoom.set('player1Hp', selectedAbnormal.hp);
         battleRoom.set('player2Id', opponent.get('userId'));
         battleRoom.set('player2Name', opponent.get('username'));
+        battleRoom.set('player2Abnormal', opponentAbnormal); // 玩家2异常物
+        battleRoom.set('player2Hp', opponentAbnormal.hp);
         battleRoom.set('status', 'battling');
-        battleRoom.set('player1Hp', 220);
-        battleRoom.set('player2Hp', 220);
         // 随机先手
         const firstAttack = Math.floor(Math.random() * 2) + 1;
         battleRoom.set('firstAttack', firstAttack);
@@ -539,7 +658,7 @@
         await opponent.destroy();
         clearInterval(matchInterval);
 
-        // 进入对战页面
+        // 进入对战页面（修复showPage调用）
         document.getElementById('start-match').classList.remove('hidden');
         document.getElementById('match-status').classList.add('hidden');
         showPage('battle-page');
@@ -553,24 +672,32 @@
       }
     }
 
-    // 6. 回合制对战逻辑
+
+    // ---------------------- 8. 回合制对战逻辑（适配异常物选择） ----------------------
     async function initBattleLogic(battleRoom) {
       if (!battleRoom) return;
       currentBattleRoom = battleRoom;
 
-      // 更新对战信息
+      // 获取双方异常物信息
       const isPlayer1 = battleRoom.get('player1Id') === currentUser.id;
+      const player1Data = battleRoom.get('player1Abnormal') || {name: '未知', hp: 220};
+      const player2Data = battleRoom.get('player2Abnormal') || {name: '未知', hp: 220};
       const player1Name = battleRoom.get('player1Name') || '未知玩家';
       const player2Name = battleRoom.get('player2Name') || '未知玩家';
-      const player1Hp = battleRoom.get('player1Hp') || 220;
-      const player2Hp = battleRoom.get('player2Hp') || 220;
+      const player1Hp = battleRoom.get('player1Hp') || player1Data.hp;
+      const player2Hp = battleRoom.get('player2Hp') || player2Data.hp;
       const currentTurn = battleRoom.get('currentTurn') || 1;
 
-      // 显示名称和HP
+      // 更新对战信息（显示所选异常物）
       document.getElementById('player1-name').textContent = isPlayer1 ? '你' : player1Name;
+      document.getElementById('player1-abnormal').textContent = `出战：${player1Data.name}`;
       document.getElementById('player2-name').textContent = isPlayer1 ? player2Name : '你';
-      document.getElementById('player1-hp').textContent = `HP: ${player1Hp}/${220}`;
-      document.getElementById('player2-hp').textContent = `HP: ${player2Hp}/${220}`;
+      document.getElementById('player2-abnormal').textContent = `出战：${player2Data.name}`;
+      document.getElementById('player1-hp').textContent = `HP: ${player1Hp}/${player1Data.hp}`;
+      document.getElementById('player2-hp').textContent = `HP: ${player2Hp}/${player2Data.hp}`;
+
+      // 加载当前玩家的技能按钮
+      loadPlayerSkills(isPlayer1 ? player1Data : player2Data);
 
       // 判断当前回合
       isMyTurn = (currentTurn === 1 && isPlayer1) || (currentTurn === 2 && !isPlayer1);
@@ -591,16 +718,16 @@
 
           currentBattleRoom = latestRoom;
           const newStatus = latestRoom.get('status');
-          const newPlayer1Hp = latestRoom.get('player1Hp') || 220;
-          const newPlayer2Hp = latestRoom.get('player2Hp') || 220;
+          const newPlayer1Hp = latestRoom.get('player1Hp') || player1Data.hp;
+          const newPlayer2Hp = latestRoom.get('player2Hp') || player2Data.hp;
           const newCurrentTurn = latestRoom.get('currentTurn') || 1;
 
           // 更新HP
           if (newPlayer1Hp !== player1Hp) {
-            document.getElementById('player1-hp').textContent = `HP: ${newPlayer1Hp}/${220}`;
+            document.getElementById('player1-hp').textContent = `HP: ${newPlayer1Hp}/${player1Data.hp}`;
           }
           if (newPlayer2Hp !== player2Hp) {
-            document.getElementById('player2-hp').textContent = `HP: ${newPlayer2Hp}/${220}`;
+            document.getElementById('player2-hp').textContent = `HP: ${newPlayer2Hp}/${player2Data.hp}`;
           }
 
           // 更新回合
@@ -631,41 +758,68 @@
           console.log('监听对战状态失败：', error);
         }
       }, 1000);
+    }
 
-      // 技能按钮事件
-      document.getElementById('skill1').addEventListener('click', () => {
-        if (!isMyTurn) return;
-        useSkill(1);
-      });
 
-      document.getElementById('skill2').addEventListener('click', () => {
-        if (!isMyTurn) return;
-        useSkill(2);
+    // ---------------------- 9. 加载玩家技能按钮（根据所选异常物） ----------------------
+    function loadPlayerSkills(abnormalData) {
+      const skillContainer = document.getElementById('skill-container');
+      skillContainer.innerHTML = '';
+
+      if (!abnormalData || !abnormalData.skills) {
+        skillContainer.innerHTML = '<p class="text-center">无可用技能</p>';
+        return;
+      }
+
+      // 渲染技能按钮
+      abnormalData.skills.forEach((skill, index) => {
+        const btn = document.createElement('button');
+        btn.className = 'btn-style p-4 pointer-events-none opacity-50';
+        btn.dataset.skillIndex = index;
+        btn.innerHTML = `
+          <p class="font-bold">${skill.name}</p>
+          <p class="text-sm text-gray-600">${skill.desc}</p>
+        `;
+        // 绑定技能点击事件
+        btn.addEventListener('click', () => {
+          if (!isMyTurn) return;
+          useSkill(index);
+        });
+        skillContainer.appendChild(btn);
       });
     }
 
-    // 使用技能
-    async function useSkill(skillType) {
-      if (!currentUser || !currentBattleRoom) return;
+
+    // ---------------------- 10. 使用技能（适配所选异常物） ----------------------
+    async function useSkill(skillIndex) {
+      if (!currentUser || !currentBattleRoom || !selectedAbnormal) return;
 
       const isPlayer1 = currentBattleRoom.get('player1Id') === currentUser.id;
       const myHpKey = isPlayer1 ? 'player1Hp' : 'player2Hp';
       const enemyHpKey = isPlayer1 ? 'player2Hp' : 'player1Hp';
       const myName = currentUser.getUsername();
       const enemyName = isPlayer1 ? currentBattleRoom.get('player2Name') : currentBattleRoom.get('player1Name');
-      const attack = 92;
-      let damage = 0;
+      const myAbnormal = isPlayer1 ? currentBattleRoom.get('player1Abnormal') : currentBattleRoom.get('player2Abnormal');
+      const skill = myAbnormal.skills[skillIndex];
+
+      if (!skill) {
+        alert('技能不存在！');
+        return;
+      }
 
       // 计算伤害
-      if (skillType === 1) {
-        damage = Math.round(attack * 1.2);
-        addBattleLog(`${myName}使用了【烈焰突袭】！`);
-      } else if (skillType === 2) {
-        damage = Math.round(attack * 1.5);
-        const 吸血 = Math.round(damage * 0.3);
-        addBattleLog(`${myName}使用了【火焰吞噬】！`);
+      const attack = myAbnormal.attack;
+      const damage = Math.round(attack * skill.damageRate);
+      addBattleLog(`${myName}使用了【${skill.name}】！`);
+
+      // 处理吸血效果
+      if (skill.吸血Rate) {
+        const 吸血 = Math.round(damage * skill.吸血Rate);
         addBattleLog(`${myName}吸血${吸血}点HP！`);
-        currentBattleRoom.set(myHpKey, Math.min(currentBattleRoom.get(myHpKey) + 吸血, 220));
+        // 更新自身HP（不超过上限）
+        const currentHp = currentBattleRoom.get(myHpKey);
+        const maxHp = myAbnormal.hp;
+        currentBattleRoom.set(myHpKey, Math.min(currentHp + 吸血, maxHp));
       }
 
       // 更新对手HP
@@ -679,6 +833,7 @@
         currentBattleRoom.set('winnerName', myName);
         currentBattleRoom.set('currentTurn', isPlayer1 ? 2 : 1);
       } else {
+        // 切换回合
         currentBattleRoom.set('currentTurn', isPlayer1 ? 2 : 1);
       }
 
@@ -690,14 +845,19 @@
           btn.classList.add('pointer-events-none', 'opacity-50');
         });
         // 更新HP显示
-        document.getElementById('player1-hp').textContent = `HP: ${currentBattleRoom.get('player1Hp')}/${220}`;
-        document.getElementById('player2-hp').textContent = `HP: ${currentBattleRoom.get('player2Hp')}/${220}`;
+        const myHp = currentBattleRoom.get(myHpKey);
+        const enemyHp = currentBattleRoom.get(enemyHpKey);
+        const myMaxHp = myAbnormal.hp;
+        const enemyMaxHp = isPlayer1 ? currentBattleRoom.get('player2Abnormal').hp : currentBattleRoom.get('player1Abnormal').hp;
+        document.getElementById('player1-hp').textContent = `HP: ${isPlayer1 ? myHp : enemyHp}/${isPlayer1 ? myMaxHp : enemyMaxHp}`;
+        document.getElementById('player2-hp').textContent = `HP: ${isPlayer1 ? enemyHp : myHp}/${isPlayer1 ? enemyMaxHp : myMaxHp}`;
       } catch (error) {
         alert('释放技能失败：' + error.message);
       }
     }
 
-    // 更新回合指示器
+
+    // ---------------------- 11. 辅助函数 ----------------------
     function updateTurnIndicator() {
       const player1TurnEl = document.getElementById('player1-turn');
       const player2TurnEl = document.getElementById('player2-turn');
@@ -711,7 +871,6 @@
       }
     }
 
-    // 更新技能按钮状态
     function updateSkillButtonState() {
       const skillButtons = document.querySelectorAll('#skill-container button');
       if (isMyTurn) {
@@ -725,7 +884,6 @@
       }
     }
 
-    // 添加战斗日志
     function addBattleLog(content) {
       const battleLogEl = document.getElementById('battle-log');
       if (!battleLogEl) return;
@@ -735,7 +893,6 @@
       battleLogEl.scrollTop = battleLogEl.scrollHeight;
     }
 
-    // 更新个人对战数据
     async function updatePlayerStats(isWin) {
       if (!currentUser) return;
       const query = new AV.Query('PlayerStats');
@@ -759,38 +916,38 @@
       }
     }
 
-    // 加载异常物图鉴
     async function loadCollectionData() {
       if (!currentUser) return;
       const collectionListEl = document.getElementById('collection-list');
-      if (!collectionListEl) return;
+      collectionListEl.innerHTML = '';
 
       try {
         const query = new AV.Query('UserAbnormal');
         query.equalTo('user', currentUser);
         const abnormals = await query.find();
 
-        collectionListEl.innerHTML = '';
         if (abnormals.length === 0) {
           collectionListEl.innerHTML = '<p class="text-center">暂无异常物数据</p>';
           return;
         }
 
         abnormals.forEach(abnormal => {
+          const data = abnormal.toJSON();
           const item = document.createElement('div');
           item.className = 'card-style p-4 flex flex-col md:flex-row items-center';
           item.innerHTML = `
             <img 
-              src="${abnormal.get('imageUrl')}" 
-              alt="${abnormal.get('name')}" 
+              src="${data.imageUrl}" 
+              alt="${data.name}" 
               class="w-32 h-32 object-cover border-simple rounded-md mb-4 md:mb-0 md:mr-6"
             >
             <div class="space-y-2 w-full md:w-auto">
-              <h4 class="text-lg font-bold">${abnormal.get('name')}</h4>
-              <p><span class="font-bold">攻击：</span>${abnormal.get('attack')}</p>
-              <p><span class="font-bold">防御：</span>${abnormal.get('defense')}</p>
-              <p><span class="font-bold">速度：</span>${abnormal.get('speed')}</p>
-              <p><span class="font-bold">技能：</span>${abnormal.get('skills').join('、')}</p>
+              <h4 class="text-lg font-bold">${data.name}</h4>
+              <p><span class="font-bold">攻击：</span>${data.attack}</p>
+              <p><span class="font-bold">防御：</span>${data.defense}</p>
+              <p><span class="font-bold">速度：</span>${data.speed}</p>
+              <p><span class="font-bold">HP：</span>${data.hp}</p>
+              <p><span class="font-bold">技能：</span>${data.skills.map(s => s.name).join('、')}</p>
             </div>
           `;
           collectionListEl.appendChild(item);
@@ -800,11 +957,10 @@
       }
     }
 
-    // 加载个人信息
     async function loadProfileData() {
       if (!currentUser) return;
       const profileDataEl = document.getElementById('profile-data');
-      if (!profileDataEl) return;
+      profileDataEl.innerHTML = '';
 
       try {
         const query = new AV.Query('PlayerStats');
